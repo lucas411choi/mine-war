@@ -1,0 +1,10 @@
+# Render Blueprint. One Node web service serves the built client (dist/) AND the WebSocket (/ws).
+services:
+  - type: web
+    name: mine-war
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true

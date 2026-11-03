@@ -1,0 +1,23 @@
+{
+  "name": "mine-war",
+  "version": "1.0.0",
+  "description": "Mine War - 3D real-time 1:1 tower defense / resource strategy (Three.js + Node.js)",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c yellow,cyan \"node --watch server/index.js\" \"vite\"",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "test:sim": "node scripts/sim-test.mjs"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "three": "~0.160.1",
+    "ws": "^8.17.1"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "vite": "^5.4.11"
+  }
+}
