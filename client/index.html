@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#2b1d14" />
+  <title>광산 전쟁 · Mine War</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Fonts are optional: if they fail to load, system fallback fonts are used (non-blocking). -->
+  <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Noto+Sans+KR:wght@400;700;900&display=swap" />
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <div id="app" data-screen="title" data-tab="mine">
+
+    <!-- ============ TITLE / LOBBY ============ -->
+    <section id="screen-title" class="screen">
+      <div class="embers"></div>
+      <div class="title-wrap">
+        <h1 class="logo" data-i18n="title">광산 전쟁</h1>
+        <p class="tagline" data-i18n="tagline"></p>
+        <div class="menu">
+          <div class="menu-block">
+            <button class="btn big" id="btn-ai" data-i18n="ai"></button>
+            <div class="seg" id="seg-diff">
+              <button data-v="easy" data-i18n="easy"></button><button data-v="normal" class="on" data-i18n="normal"></button><button data-v="hard" data-i18n="hard"></button>
+            </div>
+          </div>
+          <div class="menu-block">
+            <input id="inp-name" maxlength="12" autocomplete="off" data-i18n-ph="nameHint" />
+            <button class="btn big" id="btn-create" data-i18n="create"></button>
+            <div class="join-row">
+              <input id="inp-code" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false" data-i18n-ph="codeHint" />
+              <button class="btn" id="btn-join" data-i18n="join"></button>
+            </div>
+          </div>
+          <div class="menu-row">
+            <button class="btn small" id="btn-settings" data-i18n="settings"></button>
+            <button class="btn small" id="btn-help" data-i18n="help"></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ROOM (waiting) ============ -->
+    <section id="screen-room" class="screen hidden">
+      <div class="card">
+        <h2 data-i18n="roomTitle"></h2>
+        <div class="code-box"><span id="room-code">-----</span><button class="btn small" id="btn-copy" data-i18n="copy"></button></div>
+        <p class="hint" data-i18n="shareHint"></p>
+        <ul id="room-players" class="plist"></ul>
+        <div class="row"><button class="btn big" id="btn-ready" data-i18n="ready"></button><button class="btn" id="btn-leave" data-i18n="leave"></button></div>
+      </div>
+    </section>
+
+    <!-- ============ GAME ============ -->
+    <section id="screen-game" class="screen hidden">
+      <header id="hud">
+        <div class="hud-side me">
+          <div class="hud-name"><span id="hud-me-name"></span></div>
+          <div class="bar"><i id="hp-me"></i><span id="hp-me-txt"></span></div>
+        </div>
+        <div class="hud-mid">
+          <div class="hud-money"><span class="coin"></span><b id="hud-money">0</b><small id="hud-income">+0/s</small></div>
+          <div class="hud-time"><span id="hud-phase"></span><b id="hud-time">0:00</b></div>
+          <div class="hud-ping" id="hud-ping"></div>
+        </div>
+        <div class="hud-side foe">
+          <div class="hud-name"><span id="hud-foe-name"></span></div>
+          <div class="bar"><i id="hp-foe"></i><span id="hp-foe-txt"></span></div>
+        </div>
+        <button class="btn small" id="btn-menu">☰</button>
+      </header>
+
+      <main id="panels" data-ratio="1-2-1">
+        <section class="panel" id="panel-mine">
+          <div class="view"></div><div class="fxlayer"></div>
+          <div class="p-head"><b data-i18n="mine"></b><span id="sum-mine"></span></div>
+          <div class="hire-bar" id="bar-mine"></div>
+        </section>
+        <section class="panel" id="panel-war">
+          <div class="view"></div><div class="fxlayer"></div>
+          <div class="p-head"><b data-i18n="war"></b><span id="sum-war"></span></div>
+          <div class="prep hidden" id="prep">
+            <h3 data-i18n="prepTitle"></h3>
+            <p data-i18n="prepDesc"></p>
+            <div class="tcards" id="tcards"></div>
+            <div class="prep-foot"><button class="btn big" id="btn-confirm" data-i18n="confirm"></button><span id="prep-opp"></span></div>
+            <small data-i18n="towerSecret"></small>
+          </div>
+          <div class="hire-bar" id="bar-war"></div>
+        </section>
+        <section class="panel" id="panel-craft">
+          <div class="view"></div><div class="fxlayer"></div>
+          <div class="p-head"><b data-i18n="craft"></b><span id="sum-craft"></span></div>
+          <div class="hire-bar" id="bar-craft"></div>
+        </section>
+      </main>
+
+      <nav id="tabs">
+        <button data-tab="mine" class="on" data-i18n="tabMine"></button>
+        <button data-tab="craft" data-i18n="tabCraft"></button>
+      </nav>
+      <div id="banner" class="banner"></div>
+      <div id="result" class="overlay hidden"></div>
+    </section>
+
+    <!-- ============ MODALS ============ -->
+    <div class="modal hidden" id="modal-settings">
+      <div class="card">
+        <h2 data-i18n="settings"></h2>
+        <label class="field"><span data-i18n="sound"></span><input type="range" id="set-sound" min="0" max="100" /></label>
+        <label class="field"><span data-i18n="music"></span><input type="checkbox" id="set-music" /></label>
+        <label class="field"><span data-i18n="quality"></span>
+          <select id="set-quality"><option value="auto" data-i18n="qAuto"></option><option value="high" data-i18n="qHigh"></option><option value="med" data-i18n="qMed"></option><option value="low" data-i18n="qLow"></option></select></label>
+        <label class="field"><span data-i18n="ratio"></span>
+          <select id="set-ratio"><option value="1-2-1" data-i18n="ratioA"></option><option value="1-1-1" data-i18n="ratioB"></option></select></label>
+        <label class="field"><span data-i18n="lang"></span>
+          <select id="set-lang"><option value="ko">한국어</option><option value="en">English</option></select></label>
+        <div class="row"><button class="btn" data-close="modal-settings" data-i18n="close"></button></div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="modal-help">
+      <div class="card">
+        <h2 data-i18n="help"></h2>
+        <p data-i18n="helpBody"></p>
+        <p><b data-i18n="tut1t"></b><br /><span data-i18n="tut1"></span></p>
+        <p><b data-i18n="tut2t"></b><br /><span data-i18n="tut2"></span></p>
+        <p><b data-i18n="tut3t"></b><br /><span data-i18n="tut3"></span></p>
+        <div class="row"><button class="btn" data-close="modal-help" data-i18n="close"></button></div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="modal-tutorial">
+      <div class="card tut">
+        <h2 data-i18n="tut"></h2>
+        <div class="tut-icon" id="tut-icon"></div>
+        <h3 id="tut-title"></h3>
+        <p id="tut-body"></p>
+        <div class="dots" id="tut-dots"></div>
+        <div class="row"><button class="btn" id="tut-skip" data-i18n="tutSkip"></button><button class="btn big" id="tut-next" data-i18n="tutNext"></button></div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="modal-menu">
+      <div class="card">
+        <h2 data-i18n="menu"></h2>
+        <div class="col">
+          <button class="btn big" id="menu-resume" data-i18n="resume"></button>
+          <button class="btn" id="menu-settings" data-i18n="settings"></button>
+          <button class="btn" id="menu-quit" data-i18n="quit"></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="overlay-connect">
+      <div class="card">
+        <div class="spinner"></div>
+        <h2 id="conn-title" data-i18n="connecting"></h2>
+        <p id="conn-hint" data-i18n="connectingHint"></p>
+        <p id="conn-time" class="hint"></p>
+        <div class="row"><button class="btn" id="conn-cancel" data-i18n="cancel"></button></div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
