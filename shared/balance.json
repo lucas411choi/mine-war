@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "net": { "simHz": 20, "snapHz": 10, "maxEventsPerSnap": 220 },
+  "match": {
+    "prepSeconds": 45,
+    "battleSeconds": 600,
+    "suddenDeathSeconds": 120,
+    "suddenDeathMult": 1.5,
+    "overtimeSeconds": 60,
+    "maxUnitsPerSide": 40,
+    "firstMageDelay": 8
+  },
+  "economy": { "startMoney": 100, "priceGrowth": 1.08, "freeMiner": "jack" },
+  "map": { "towerX": 27, "laneHalfWidth": 4.5, "spawnOffset": 4.5, "towerRadius": 2.6 },
+  "towers": {
+    "crystal": { "hp": 2000, "atk": 26, "range": 13, "cd": 1.4, "air": true, "dr": 0, "incomeBonus": 0, "splash": 0, "meleeBonus": 1 },
+    "iron":    { "hp": 3000, "atk": 18, "range": 11, "cd": 1.5, "air": true, "dr": 0.15, "incomeBonus": 0, "splash": 0, "meleeBonus": 1 },
+    "flame":   { "hp": 1500, "atk": 20, "range": 9,  "cd": 1.3, "air": false, "dr": 0, "incomeBonus": 0, "splash": 3, "meleeBonus": 1.6 },
+    "vein":    { "hp": 1600, "atk": 9,  "range": 10, "cd": 1.6, "air": true, "dr": 0, "incomeBonus": 0.15, "splash": 0, "meleeBonus": 1 }
+  },
+  "status": {
+    "burn": { "dur": 4, "dps": 14 },
+    "slow": { "dur": 3, "mult": 0.6 },
+    "stun": { "dur": 0.8 }
+  },
+  "magic": {
+    "baseInterval": 12, "minInterval": 5, "intervalDecay": 0.85, "dmgPerExtra": 0.3,
+    "warnTime": 1.2, "radius": 4.2,
+    "fire": { "dmg": 80 },
+    "water": { "dmg": 25, "radius": 4.8 },
+    "zap": { "dmg": 65, "chain": 3, "chainRange": 6.5 }
+  },
+  "chars": {
+    "jack":      { "team": "mine", "cost": 50,   "cooldown": 1, "max": 12, "income": 1 },
+    "robinson":  { "team": "mine", "cost": 200,  "cooldown": 1, "max": 10, "income": 3.5 },
+    "gary":      { "team": "mine", "cost": 600,  "cooldown": 2, "max": 8,  "income": 9, "interval": 5 },
+    "teammine":  { "team": "mine", "cost": 1800, "cooldown": 3, "max": 6,  "income": 24, "crew": 4 },
+
+    "tim":    { "team": "war", "cost": 60,  "cooldown": 3,  "hp": 120, "atk": 12, "range": 1.7, "speed": 2.4, "atkCd": 0.9, "melee": true,  "air": false, "canHitAir": false, "fx": "melee" },
+    "kimmy":  { "team": "war", "cost": 150, "cooldown": 5,  "hp": 260, "atk": 20, "range": 1.9, "speed": 4.8, "atkCd": 1.0, "melee": true,  "air": false, "canHitAir": false, "fx": "melee", "charge": 1.5 },
+    "kelly":  { "team": "war", "cost": 120, "cooldown": 4,  "hp": 80,  "atk": 16, "range": 9,   "speed": 2.2, "atkCd": 1.1, "melee": false, "air": false, "canHitAir": true,  "fx": "arrow" },
+    "galion": { "team": "war", "cost": 500, "cooldown": 10, "hp": 900, "atk": 60, "range": 4.5, "speed": 1.3, "atkCd": 2.2, "melee": false, "air": false, "canHitAir": false, "fx": "cannon", "splash": 2.5, "towerMult": 2 },
+    "sammy":  { "team": "war", "cost": 900, "cooldown": 14, "hp": 400, "atk": 45, "range": 4,   "speed": 2.8, "atkCd": 1.5, "melee": false, "air": true,  "canHitAir": true,  "fx": "air" },
+
+    "sam":   { "team": "craft", "cost": 300, "cooldown": 2, "max": 5, "atk": 0.05 },
+    "bill":  { "team": "craft", "cost": 300, "cooldown": 2, "max": 5, "def": 0.05 },
+    "ezra":  { "team": "craft", "cost": 700, "cooldown": 4, "max": 5 }
+  }
+}
