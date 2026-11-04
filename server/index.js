@@ -25,10 +25,14 @@ process.on('unhandledRejection', (e) => console.error('[unhandledRejection]', e)
 const app = express();
 app.disable('x-powered-by');
 app.get('/healthz', (_req, res) => res.status(200).type('text/plain').send('ok'));
-app.use(express.static(distDir, { maxAge: '1h', index: 'index.html' }));
+// hashed assets can be cached; index.html must always be revalidated so a new deploy is picked up (no stale client)
+app.use(express.static(distDir, {
+  maxAge: '1h', index: 'index.html',
+  setHeaders: (res, file) => { if (file.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache'); },
+}));
 app.use((req, res) => {
   const index = path.join(distDir, 'index.html');
-  if (req.method === 'GET' && fs.existsSync(index)) return res.sendFile(index);
+  if (req.method === 'GET' && fs.existsSync(index)) { res.setHeader('Cache-Control', 'no-cache'); return res.sendFile(index); }
   res.status(404).type('text/plain').send('Client not built. Run: npm run build');
 });
 

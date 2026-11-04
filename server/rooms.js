@@ -5,7 +5,7 @@
  */
 import crypto from 'node:crypto';
 import { MatchRunner } from './matchRunner.js';
-import { ROOM_ALPHABET, ROOM_CODE_LEN, C2S, S2C, ERR, validateClientMessage } from '../shared/protocol.js';
+import { ROOM_ALPHABET, ROOM_CODE_LEN, C2S, S2C, ERR, GAME_VERSION, validateClientMessage } from '../shared/protocol.js';
 
 const OPEN = 1;
 
@@ -64,6 +64,8 @@ export class RoomManager {
     if (msg.t === C2S.HELLO) return this.hello(ws, msg);
     const s = ws.session;
     if (!s) return;
+    // a client running a different build must not create/join/play (stale cache) -> it is told to refresh
+    if (s.ver !== GAME_VERSION && [C2S.CREATE, C2S.JOIN, C2S.READY, C2S.CMD].includes(msg.t)) return this.err(s, ERR.VERSION);
     switch (msg.t) {
       case C2S.PING: return this.send(s, { t: S2C.PONG, ts: msg.ts });
       case C2S.CREATE: return this.create(s, msg);
@@ -84,8 +86,9 @@ export class RoomManager {
       this.sessions.set(s.token, s);
     }
     s.name = msg.name || s.name;
+    s.ver = msg.ver;
     ws.session = s;
-    this.send(s, { t: S2C.WELCOME, token: s.token, boot: this.bootId, restarted, resumed: !!s.room });
+    this.send(s, { t: S2C.WELCOME, token: s.token, boot: this.bootId, restarted, resumed: !!s.room, version: GAME_VERSION });
     if (s.room) {
       const room = s.room;
       this.broadcastRoom(room);
