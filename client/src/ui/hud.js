@@ -2,7 +2,7 @@
  * HUD: top bar (money, income, time, tower HP), hire buttons for the 3 panels, prep overlay (tower pick),
  * result screen and banners. Reads a session view each frame (throttled), never touches the simulation directly.
  */
-import { priceOf } from '../../../shared/sim/economy.js';
+import { priceOf, sortedIds, maxOwned } from '../../../shared/sim/economy.js';
 import { mageInterval } from '../../../shared/sim/magic.js';
 import { t } from '../config/i18n.js';
 import { portrait } from './portraits.js';
@@ -15,7 +15,7 @@ export class Hud {
   constructor(bal, h) {
     this.bal = bal; this.h = h; this.btns = {}; this.last = 0; this.cache = {}; this.resultShown = false;
     this.el = { money: $('#hud-money'), income: $('#hud-income'), time: $('#hud-time'), phase: $('#hud-phase'), ping: $('#hud-ping'), hud: $('#hud'),
-      meName: $('#hud-me-name'), foeName: $('#hud-foe-name'), hpMe: $('#hp-me'), hpFoe: $('#hp-foe'), hpMeT: $('#hp-me-txt'), hpFoeT: $('#hp-foe-txt'),
+      meName: $('#hud-me-name'), foeName: $('#hud-foe-name'), hpMe: $('#hp-me'), hpFoe: $('#hp-foe'),
       prep: $('#prep'), confirm: $('#btn-confirm'), prepOpp: $('#prep-opp'), result: $('#result'), banner: $('#banner') };
     this.buildBars(); this.buildPrep();
     $('#btn-confirm').addEventListener('click', () => this.h.ready());
@@ -27,7 +27,7 @@ export class Hud {
     this.btns = {};
     for (const team of ['mine', 'war', 'craft']) {
       const bar = $('#bar-' + team); bar.innerHTML = '';
-      for (const id of Object.keys(this.bal.chars).filter((k) => this.bal.chars[k].team === team)) {
+      for (const id of sortedIds(this.bal, team)) { // ascending BASE price: re-hire price growth never reorders buttons
         const b = document.createElement('button');
         b.className = 'hire'; b.dataset.id = id; b.title = t('c_' + id + '_d');
         b.innerHTML = `<img class="portrait" src="${portrait(id)}" alt=""><span class="nm">${t('c_' + id)}</span><span class="pr"></span><span class="cnt"></span><i class="cd"></i>`;
@@ -80,12 +80,10 @@ export class Hud {
     const tm = v.towers[my], tf = v.towers[1 - my], prep = v.phase === 'prep';
     E.hpMe.style.width = (Math.max(0, tm.hp) / tm.maxHp) * 100 + '%';
     E.hpFoe.style.width = prep ? '100%' : (Math.max(0, tf.hp) / tf.maxHp) * 100 + '%';
-    this.set('hpMeT', E.hpMeT, Math.ceil(Math.max(0, tm.hp)) + ' / ' + tm.maxHp);
-    this.set('hpFoeT', E.hpFoeT, prep ? '???' : Math.ceil(Math.max(0, tf.hp)) + ' / ' + tf.maxHp);
 
     for (const id in this.btns) {
       const b = this.btns[id], c = b.c, owned = me.owned[id] || 0, price = priceOf(bal, me.bought, id), cd = me.cd[id] || 0;
-      const maxed = c.team !== 'war' && owned >= c.max;
+      const maxed = c.team !== 'war' && owned >= maxOwned(c);
       const capped = c.team === 'war' && me.unitCount >= bal.match.maxUnitsPerSide;
       const locked = (prep && c.team !== 'mine') || v.phase === 'over';
       this.set('pr' + id, b.pr, maxed ? t('maxTag') : String(price));
@@ -95,10 +93,10 @@ export class Hud {
       this.cls(id, b.el, 'locked', locked);
       b.el.style.setProperty('--p', cd > 0 && !prep ? Math.min(1, cd / c.cooldown).toFixed(2) : '0');
     }
-    this.set('sumMine', $('#sum-mine'), t('income') + ' ' + me.income.toFixed(1) + t('per') + (v.towers[my].type === 'vein' && !prep ? ' (+15%)' : ''));
+    this.set('sumMine', $('#sum-mine'), t('income') + ' ' + me.income.toFixed(1) + t('per') + (!prep && bal.towers[v.towers[my].type].incomeBonus ? ' (+' + Math.round(bal.towers[v.towers[my].type].incomeBonus * 100) + '%)' : '') + (v.sudden ? ' ▲' : ''));
     this.set('sumWar', $('#sum-war'), t('army') + ' ' + me.unitCount + '/' + bal.match.maxUnitsPerSide + '  ·  ' + t('foeArmy') + ' ' + foe.unitCount);
     const mg = me.owned.ezra ? mageInterval(bal, me.owned.ezra).toFixed(1) + t('sec') : '-';
-    this.set('sumCraft', $('#sum-craft'), `${t('atk')} +${Math.round(bal.chars.sam.atk * 100 * me.owned.sam)}% · ${t('def')} -${Math.round(bal.chars.bill.def * 100 * me.owned.bill)}% · ${t('mage')} ${mg}`);
+    this.set('sumCraft', $('#sum-craft'), `${t('atk')} +${Math.round(bal.chars.sam.perStack * 100 * Math.min(me.owned.sam, bal.chars.sam.maxStacks))}% · ${t('def')} -${Math.round(bal.chars.bill.perStack * 100 * Math.min(me.owned.bill, bal.chars.bill.maxStacks))}% · ${t('mage')} ${mg}`);
 
     // prep overlay
     E.prep.classList.toggle('hidden', !prep);

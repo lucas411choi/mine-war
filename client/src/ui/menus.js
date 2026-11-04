@@ -7,7 +7,7 @@ export const $ = (s, r = document) => r.querySelector(s);
 
 export function setScreen(name) {
   $('#app').dataset.screen = name;
-  for (const s of ['title', 'room', 'game']) $('#screen-' + s).classList.toggle('hidden', s !== name);
+  for (const s of ['title', 'room', 'game', 'codex']) $('#screen-' + s).classList.toggle('hidden', s !== name);
   $('#gl').style.display = name === 'game' ? 'block' : 'none';
 }
 
