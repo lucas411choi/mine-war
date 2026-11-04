@@ -21,8 +21,9 @@
 │     ├─ audio.js           # WebAudio로 만든 효과음/배경음
 │     ├─ config/            # texts.js(문구), settings.js(설정), assets.js(에셋 매니페스트), i18n.js
 │     ├─ game/session.js    # LocalSession(AI 대전) / OnlineSession(서버 스냅샷 보간)
-│     ├─ render/            # stage.js(3분할+포스트프로세싱), warScene.js, workScenes.js(채굴/제작), models.js, particles.js, gfx.js
-│     └─ ui/                # hud.js, menus.js, portraits.js, ../style.css
+│     ├─ render/            # stage.js(3분할+포스트프로세싱), warScene.js, workScenes.js(채굴/제작), models.js, archerGeom.js(활 기하),
+│     │                     # hpbars.js(체력바), preview.js(도감 3D 미리보기), particles.js, gfx.js
+│     └─ ui/                # hud.js, menus.js, codex.js(도감), portraits.js, ../style.css
 ├─ server/
 │  ├─ index.js          # Express + ws, 정적 서빙, /healthz, ping 30초, rate limit, 예외 처리
 │  ├─ rooms.js          # 방 코드 생성/입장/정리, 재접속(세션 토큰), 연결 끊김 처리
@@ -33,7 +34,7 @@
 │  ├─ protocol.js       # 메시지 타입/검증 (서버·클라이언트 공유)
 │  ├─ snapshot.js       # 스냅샷 인코딩 + 클라이언트 Mirror
 │  └─ sim/              # game.js, economy.js, units.js, combat.js, tower.js, magic.js, ai.js, rng.js
-└─ scripts/sim-test.mjs # AI vs AI 헤드리스 테스트
+└─ scripts/              # sim-test.mjs(AI vs AI), update-test.mjs(v1.1.0 규칙 검증 33항목)
 ```
 
 ## 로컬 실행
@@ -43,6 +44,7 @@ npm run dev                      # 서버(3000) + Vite(5173) 동시 실행 → h
 # 배포 환경과 똑같이 확인하기
 npm run build && npm start       # → http://localhost:3000  (/healthz 도 확인)
 npm run test:sim                 # (선택) 시뮬레이션/AI 헤드리스 테스트
+node scripts/update-test.mjs     # (선택) v1.1.0 규칙 검증: 정렬, 갈리온, 서든데스, 타워 대공 등
 ```
 Node 18 이상 필요 (`.node-version`은 20.18.0).
 
@@ -82,7 +84,7 @@ git push -u origin main
 - 서버 부하를 줄이기 위해 서버 틱 20Hz, 스냅샷 10Hz(변경분만 전송), 메시지 크기 2KB·초당 40개 제한, 30초 ws ping을 사용합니다.
 
 ## 밸런스 수정
-`shared/balance.json` 하나에 모든 수치가 있습니다 (시작 자금, 가격 상승률 8%, 캐릭터별 가격/체력/공격력/속도/쿨타임, 타워 4종, 마법, 시간 설정 등). 수정 후 `npm run build`만 하면 서버·클라이언트·AI가 모두 반영합니다. 문구는 `client/src/config/texts.js`, AI 난이도는 `shared/sim/ai.js`의 `LEVELS`.
+`shared/balance.json` 하나에 모든 수치가 있습니다 (시작 자금, 가격 상승률 8%, 캐릭터별 가격/체력/공격력/속도/쿨타임, 타워 4종, 마법, 시간 설정 등). 수정 후 `npm run build`만 하면 서버·클라이언트·AI가 모두 반영합니다. 문구는 `client/src/config/texts.js`, AI 난이도는 `shared/balance.json`의 `ai.levels`.
 
 ## 에셋(GLB, 사운드) 교체
 - 기본 상태는 **에셋 파일 0개**입니다 (모델은 코드로 생성, 사운드는 WebAudio 합성).
@@ -103,6 +105,32 @@ git push -u origin main
 - 채굴/제작 캐릭터는 종류별 최대 보유 수가 있음(잭 12, 로빈슨 10, 개리 8, 팀 마인 6, 샘/빌/에즈라 5). 전쟁 유닛은 양쪽 각 40기 제한.
 - 준비 시간에는 채굴 팀만 고용 가능(수입은 전투 시작부터 발생). 시작 자금 100으로 잭 1명 추가 고용 가능.
 - 연장전 후에도 같으면 타워 피해량이 많은 쪽, 그것도 같으면 방장(0번)이 승리.
-- 새미(공중)는 근접 유닛과 갈리온(대지 포)에게 공격받지 않고, 궁수·새미·마법·(화염 포대를 제외한) 타워가 공격 가능. 화염 포대는 지상 전용.
+- 새미(공중)는 근접 유닛(팀, 키미)에게 공격받지 않습니다. 궁수·갈리온·새미·마법과 **모든 타워 4종**은 새미를 공격할 수 있습니다.
 - 샘/빌의 버프는 유닛과 메인 타워 모두에 적용. 마법은 샘 버프 대신 에즈라 중첩 배율을 사용.
 - 클라이언트 예측은 하지 않고(서버 권위 + 스냅샷 보간), 버튼 반응성은 클라이언트 사전 검사와 즉시 효과음/반짝임으로 보완.
+
+## 변경 이력 (이번 업데이트: v1.1.0)
+
+`GAME_VERSION`(`shared/protocol.js`)을 `1.1.0`으로 올렸습니다. 접속(`welcome`) 때 서버와 클라이언트 버전을 비교하고, 다르면 "새 버전이 있습니다. 새로고침해 주세요" 창을 띄우며 온라인 대전은 차단됩니다.
+`index.html`은 항상 재검증(`no-cache`)하도록 해서 배포 후 옛 클라이언트가 캐시에 남는 일을 줄였습니다. **규칙/프로토콜을 바꿀 때마다 `GAME_VERSION`을 올리세요.**
+
+| 항목 | 변경 전 → 변경 후 | 수정 위치(balance.json) |
+|---|---|---|
+| 켈리 활 | 활이 거꾸로 → 활 등이 정면, 시위/깃털이 몸 쪽, 당김·발사·활줄 진동 | (모델) `render/models.js`, `render/archerGeom.js` |
+| 고용 버튼 순서 | 정의 순서 → 기본가 오름차순 (전쟁: 팀→켈리→키미→갈리온→새미) | `sortedIds()` in `shared/sim/economy.js` |
+| 갈리온 | 체력 900→720, 사거리 4.5→7.2(×1.6, 켈리 9보다 짧음), 공중 공격 가능, 범위 피해가 공중 포함 | `chars.galion.hp / range / canHitAir / splash` |
+| 팀 마인 | 가격 1800→1300 (수입 24 유지) | `chars.teammine.cost` |
+| 샘 / 빌 | 5%→7%, 최대 5중첩(±35%) | `chars.sam.perStack / maxStacks`, `chars.bill.perStack / maxStacks` |
+| 서든데스 | 피해 +50%→+30%, 수입 +30% 신규 | `suddenDeath.seconds / damageBonus / incomeBonus` |
+| 체력바 | 검은 막대 → 피해 후 나타나는 초록 막대(숫자 없음), 타워/HUD 동일 스타일 | (스타일) `render/hpbars.js` `BAR_STYLE` |
+| 타워 대공 | 화염 포대만 불가 → 4종 모두 공중 공격 | `towers.*.canHitAir` |
+| AI | 난이도 표를 코드→balance.json으로 이동, 새미 단독 돌진 억제 | `ai.levels`, `ai.sammy` |
+
+### 도감 사용법
+- 시작 메뉴의 **[도감]** 버튼 → 탭(채굴 팀 / 전쟁 팀 / 제작 팀 / 타워) → 왼쪽 목록에서 선택(가격 오름차순).
+- 위쪽의 3D 미리보기는 인게임과 같은 모델입니다. 천천히 회전하고, **드래그**로 직접 돌려볼 수 있습니다. 닫으면(뒤로 버튼 / Esc) 장면과 GL 컨텍스트를 정리합니다.
+- 서버 없이 동작합니다(오프라인 가능). 상세 수치(체력, 공격력, 공격 속도, 사거리, 이동 속도, 공격 대상, 범위 피해, 쿨타임, 수입 효율, 중첩 규칙, 마법 3종, 타워 능력 등)는 모두 `shared/balance.json`에서 읽으므로 밸런스를 고치면 도감이 자동으로 맞춰집니다. 소개/강점/약점/팁 문구만 `client/src/config/texts.js`(`x_<id>_...`)에 있습니다.
+
+### 체력바 규칙
+- 체력이 최대 미만이 되는 순간(공격·타워·마법·화상 모두) 0.15초 페이드인 → 죽을 때까지 유지, 숫자는 없음, 왼쪽 기준으로 부드럽게 줄어듭니다.
+- 전쟁 패널의 체력바는 후처리(톤매핑) **이후** 단계에서 한 번의 드로우콜(InstancedMesh)로 그려서 색이 변하지 않습니다. 화면 밖 유닛은 업데이트/표시하지 않습니다.
