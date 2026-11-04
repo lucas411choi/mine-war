@@ -61,10 +61,9 @@ input[type=range] { padding: 0; accent-color: #b8791a; } input[type=checkbox] { 
 /* ---------- game HUD ---------- */
 #hud { position: absolute; top: 0; left: 0; right: 0; height: var(--hud-h); z-index: 5; display: flex; align-items: center; gap: 10px; padding: 4px 10px; background: linear-gradient(#4f3a27, #2b1d14); border-bottom: 3px solid #120a06; box-shadow: 0 4px 12px #000a; }
 .hud-side { flex: 1; min-width: 0; } .hud-name { font-size: .78rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; } .hud-side.foe .hud-name { text-align: right; }
-.bar { position: relative; height: 20px; border: 2px solid #b8923a; border-radius: 10px; background: #1a1008; overflow: hidden; }
-.bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; transition: width .2s; }
-.me .bar i { background: linear-gradient(#8fc8ff, #2a6fe0); } .foe .bar i { left: auto; right: 0; background: linear-gradient(#ff9a8a, #d63a2a); }
-.bar span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 900; color: #fff; text-shadow: 0 1px 2px #000; }
+/* HUD tower health: same green style as the in-world bars (no numbers); empty part = dark grey 70% */
+.bar { position: relative; height: 16px; border: 2px solid #e6eadf; border-radius: 4px; background: rgba(42, 42, 42, .7); overflow: hidden; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; transition: width .25s ease-out; background: linear-gradient(#a1f7a6 0%, #3fdc4a 55%, #35c640 100%); }
 .hud-mid { display: flex; flex-direction: column; align-items: center; min-width: 140px; line-height: 1.1; }
 .hud-money { font-weight: 900; font-size: 1.2rem; color: var(--gold2); } .hud-money small { font-size: .75rem; margin-left: 6px; color: #b9e08a; }
 .coin { display: inline-block; width: 16px; height: 16px; margin-right: 5px; vertical-align: -3px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff2a0, #e0a63a 60%, #8a5a12); border: 2px solid #6a4a12; }
@@ -142,3 +141,32 @@ input[type=range] { padding: 0; accent-color: #b8791a; } input[type=checkbox] { 
 @keyframes banner { 0% { opacity: 0; transform: scale(.6); } 15% { opacity: 1; transform: scale(1.1); } 75% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.05); } }
 @keyframes pop { 0% { transform: scale(.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes embers { 0% { transform: translateY(0); opacity: .8; } 100% { transform: translateY(-40px); opacity: .3; } }
+
+/* ---------- codex ---------- */
+#screen-codex { display: flex; flex-direction: column; gap: 8px; padding: 10px; background: radial-gradient(ellipse at 50% 0%, #4a3322, #170e08 80%); overflow: hidden; }
+.codex-head { display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 3; }
+.codex-head h2 { margin: 0; font-family: var(--head); color: var(--gold2); font-size: 1.4rem; text-shadow: 0 2px 0 #000; }
+#codex-tabs { flex: none; max-width: 640px; }
+.codex-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 10px; }
+#codex-list { list-style: none; margin: 0; padding: 6px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; border-radius: 10px; border: 3px solid #5a4630; background: #00000040; }
+#codex-list li { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 9px; border: 2px solid #6a4f2a; background: linear-gradient(#4a3826, #2b1d14); cursor: pointer; flex: none; }
+#codex-list li.on { border-color: #ffd54a; box-shadow: 0 0 0 2px #ffd54a66, inset 0 0 14px #ffd54a33; }
+#codex-list img, #codex-list .ticon { width: 44px; height: 44px; border-radius: 8px; border: 2px solid #14100a; object-fit: cover; flex: none; }
+.ticon { display: flex; align-items: center; justify-content: center; font-size: 1.6rem; background: radial-gradient(circle at 35% 30%, var(--c, #9aa), #1a1008); }
+#codex-list b { display: block; font-size: .95rem; } #codex-list small { color: var(--gold2); font-weight: 700; }
+#codex-detail { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; border-radius: 10px; border: 3px solid #5a4630; background: #00000040; padding: 8px; }
+.codex-preview { position: relative; flex: none; height: min(38vh, 340px); min-height: 200px; border-radius: 10px; overflow: hidden; border: 2px solid #14100a; background: radial-gradient(ellipse at 50% 70%, #6b8f4a, #2a3a24 60%, #141a10); cursor: grab; touch-action: none; }
+#codex-canvas { width: 100%; height: 100%; display: block; }
+#codex-info { display: flex; flex-direction: column; gap: 8px; padding: 2px 4px 10px; }
+#codex-info h3 { margin: 0; font-family: var(--head); font-size: 1.5rem; color: var(--gold2); } #codex-info h3 small { font-size: .9rem; color: #cdb98a; margin-left: 8px; font-family: var(--body); }
+#codex-info .intro { margin: 0; line-height: 1.5; }
+.codex-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px; }
+.codex-grid .r { display: flex; justify-content: space-between; gap: 10px; padding: 6px 10px; border-radius: 8px; background: #ffffff10; border: 1px solid #ffffff18; }
+.codex-grid .r b { color: #cdb98a; font-weight: 700; white-space: nowrap; } .codex-grid .r span { text-align: right; font-weight: 700; }
+.codex-box { padding: 8px 12px; border-radius: 8px; line-height: 1.5; background: #ffffff0c; border-left: 4px solid var(--gold); } .codex-box.pro { border-color: #4fbf5a; } .codex-box.con { border-color: #e0604a; } .codex-box.tip { border-color: #5aa8ff; }
+.codex-box b { display: block; font-size: .8rem; color: #cdb98a; margin-bottom: 2px; }
+.codex-box ul { margin: 2px 0 0; padding-left: 18px; }
+.portrait .codex-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+.portrait #codex-list { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+.portrait #codex-list li { flex-direction: column; min-width: 86px; text-align: center; gap: 4px; } .portrait #codex-list b { font-size: .8rem; }
+.portrait .codex-preview { height: 30vh; min-height: 170px; } .portrait #codex-tabs { max-width: none; } .portrait .codex-head h2 { font-size: 1.15rem; }

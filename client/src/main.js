@@ -6,13 +6,15 @@ import './style.css';
 import balance from '../../shared/balance.json';
 import { priceOf } from '../../shared/sim/economy.js';
 import { settings, saveSettings, effectiveQuality } from './config/settings.js';
-import { t, applyI18n } from './config/i18n.js';
+import { t, tf, applyI18n } from './config/i18n.js';
+import { GAME_VERSION } from '../../shared/protocol.js';
 import { audio } from './audio.js';
 import { Net } from './net.js';
 import { LocalSession, OnlineSession } from './game/session.js';
 import { Hud } from './ui/hud.js';
 import * as M from './ui/menus.js';
 import { Stage } from './render/stage.js';
+import { Codex } from './ui/codex.js';
 import { loadModelOverrides } from './render/models.js';
 
 const $ = M.$;
@@ -64,6 +66,11 @@ $('#btn-create').addEventListener('click', () => { audio.play('click'); goOnline
 $('#btn-join').addEventListener('click', joinPressed);
 $('#inp-code').addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
 $('#inp-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinPressed(); });
+// codex: offline, reads balance.json only (no server needed)
+const codex = new Codex(balance, { onClose: () => { mode = 'title'; M.setScreen('title'); } });
+$('#btn-codex').addEventListener('click', () => { audio.play('click'); mode = 'codex'; codex.open(); });
+$('#btn-refresh').addEventListener('click', () => location.reload());
+function showVersionNotice() { pending = null; M.connectUI.hide(); M.openModal('modal-version'); if (net) { net.setCode(''); net.close(); } }
 $('#btn-settings').addEventListener('click', () => { audio.play('click'); reloadSettingsUI(); M.openModal('modal-settings'); });
 $('#btn-help').addEventListener('click', () => { audio.play('click'); M.openModal('modal-help'); });
 $('#menu-settings').addEventListener('click', () => { reloadSettingsUI(); M.openModal('modal-settings'); });
@@ -171,6 +178,7 @@ $('#conn-cancel').addEventListener('click', () => {
 function onNetMsg(m) {
   switch (m.t) {
     case 'welcome':
+      if (m.version !== GAME_VERSION) { showVersionNotice(); break; } // stale cached client vs new server (or the reverse)
       M.connectUI.hide();
       if (!m.resumed) { net.setCode(''); if (!pending && mode === 'title') { net.close(); break; } }
       sendPending(); break;
@@ -184,6 +192,7 @@ function onNetMsg(m) {
       break;
     case 'snap': if (session && session.mode === 'online') session.onSnap(m); break;
     case 'err':
+      if (m.code === 'VERSION') { showVersionNotice(); break; }
       if (m.code === 'GAME_ERR') hudHandlers.fail(m.why || 'bad'); else M.toast(t(m.code));
       break;
     case 'left':
@@ -210,7 +219,7 @@ function onGameEvents(events) {
   for (const e of events) {
     switch (e.e) {
       case 'start': hud.banner(t('battleStart')); audio.play('horn'); break;
-      case 'sd': hud.banner(t('suddenDeath'), 'warn'); audio.play('warn'); break;
+      case 'sd': hud.banner(tf('suddenDeath', { dmg: Math.round(balance.suddenDeath.damageBonus * 100), inc: Math.round(balance.suddenDeath.incomeBonus * 100) }), 'warn'); audio.play('warn'); break;
       case 'ot': hud.banner(t('overtime'), 'warn'); audio.play('warn'); break;
       case 'atk': audio.play(e.k === 'melee' ? 'sword' : e.k === 'arrow' ? 'arrow' : e.k === 'cannon' ? 'cannon' : 'air'); break;
       case 'twatk': audio.play('twatk'); break;

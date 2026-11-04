@@ -1,3 +1,5 @@
+import { GAME_VERSION } from '../../shared/protocol.js';
+
 /**
  * Net: WebSocket client for online matches.
  * - URL is derived from `location` (wss on https, ws on http) -> same code works locally and on Render.
@@ -43,7 +45,7 @@ export class Net {
     let opened = false;
     ws.onopen = () => {
       opened = true; this.open = true; this.startedAt = Date.now();
-      this.send({ t: 'hello', token: this.token, code: this.code, name: this.name });
+      this.send({ t: 'hello', token: this.token, code: this.code, name: this.name, ver: GAME_VERSION });
       clearInterval(this.pingTimer);
       this.pingTimer = setInterval(() => this.send({ t: 'ping', ts: Date.now() }), 10000);
       this.h.status('open', {});
