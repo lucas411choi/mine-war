@@ -14,7 +14,7 @@ export function stepTower(g, side, dt) {
   if (tw.cd > 0) return;
   let best = null, bd = 1e9;
   for (const u of g.units) {
-    if (u.side === side || u.dead || (u.air && !def.air)) continue;
+    if (u.side === side || u.dead || (u.air && !def.canHitAir)) continue;
     const d = Math.hypot(u.x - tw.x, u.z);
     if (d <= def.range && d < bd) { bd = d; best = u; }
   }
@@ -25,7 +25,7 @@ export function stepTower(g, side, dt) {
   g.emit({ e: 'twatk', s: side, k: tw.type, x: tw.x, tx: +best.x.toFixed(1), tz: +best.z.toFixed(1), a: best.air ? 1 : 0 });
   if (def.splash) {
     for (const o of g.units) {
-      if (o.dead || o.side === side || o.air || o === best) continue;
+      if (o.dead || o.side === side || o === best) continue; // splash hits ground and air
       if (Math.hypot(o.x - best.x, o.z - best.z) <= def.splash) hurtUnit(g, side, o, dmg * 0.6, null, false);
     }
   }

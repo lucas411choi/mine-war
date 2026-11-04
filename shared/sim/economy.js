@@ -10,6 +10,15 @@ export function priceOf(bal, bought, id) {
   return Math.round(c.cost * Math.pow(g, bought[id] || 0));
 }
 
+/** Max copies of a character: stackable buffs use maxStacks, others max. */
+export const maxOwned = (c) => c.maxStacks ?? c.max;
+
+/** Common ordering for hire buttons + codex: ascending BASE price (re-hire price growth never reorders). Ties keep balance.json order. */
+export function sortedIds(bal, team) {
+  return Object.keys(bal.chars).map((id, i) => ({ id, i })).filter((x) => !team || bal.chars[x.id].team === team)
+    .sort((a, b) => bal.chars[a.id].cost - bal.chars[b.id].cost || a.i - b.i).map((x) => x.id);
+}
+
 export function makePlayer(bal) {
   const owned = {}, bought = {}, cd = {};
   for (const id in bal.chars) { owned[id] = 0; bought[id] = 0; cd[id] = 0; }
@@ -26,7 +35,8 @@ export function calcIncome(g, side) {
   let s = 0;
   for (const id in g.bal.chars) { const c = g.bal.chars[id]; if (c.team === 'mine') s += p.owned[id] * c.income; }
   const tw = g.towers[side];
-  return s * (1 + (tw ? g.bal.towers[tw.type].incomeBonus : 0));
+  // tower bonus and sudden-death bonus are multiplied together
+  return s * (1 + (tw ? g.bal.towers[tw.type].incomeBonus : 0)) * (g.sudden ? 1 + g.bal.suddenDeath.incomeBonus : 1);
 }
 
 export function tickEconomy(g, dt) {
@@ -47,7 +57,7 @@ export function hire(g, side, id) {
   else if (g.phase !== 'battle') return { ok: false, err: 'phase' };
   if (g.phase === 'battle' && p.cd[id] > 0) return { ok: false, err: 'cd' };
   if (c.team === 'war') { if (p.unitCount >= bal.match.maxUnitsPerSide) return { ok: false, err: 'cap' }; }
-  else if (p.owned[id] >= c.max) return { ok: false, err: 'max' };
+  else if (p.owned[id] >= maxOwned(c)) return { ok: false, err: 'max' };
   const cost = priceOf(bal, p.bought, id);
   if (p.money < cost) return { ok: false, err: 'money' };
   p.money -= cost; p.bought[id]++; p.owned[id]++;

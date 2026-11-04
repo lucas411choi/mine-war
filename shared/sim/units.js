@@ -27,7 +27,7 @@ function strikeUnit(g, u, def, tgt) {
   g.emit({ e: 'atk', u: u.id, k: def.fx, x: r1(u.x), z: r1(u.z), tx: r1(tgt.x), tz: r1(tgt.z), a: tgt.air ? 1 : 0 });
   if (def.splash) {
     for (const o of g.units) {
-      if (o.dead || o.side === u.side || o === tgt || o.air) continue;
+      if (o.dead || o.side === u.side || o === tgt) continue; // splash hits ground and air
       if (Math.hypot(o.x - tgt.x, o.z - tgt.z) <= def.splash) hurtUnit(g, u.side, o, base * 0.6, u, false);
     }
   }

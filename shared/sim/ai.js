@@ -2,16 +2,11 @@
  * AIPlayer: plays by exactly the same rules as a human (same hire() command, no money/info cheats).
  * It only looks at what a human could see: own state, enemy units on the field and, after the
  * prep phase, the revealed enemy tower type.
- * Difficulty changes think interval, mistake chance and counter-picking, not resources.
+ * Difficulty (balance.json -> ai.levels) changes think interval, mistake chance and counter-picking, not resources.
  */
 import { makeRng } from './rng.js';
-import { hire, priceOf } from './economy.js';
+import { hire, priceOf, maxOwned } from './economy.js';
 
-const LEVELS = {
-  easy:   { think: 3.2, mistake: 0.35, counter: false, danger: 4, noise: 1.2, early: 80, eff: 0 },
-  normal: { think: 1.6, mistake: 0.15, counter: true,  danger: 3, noise: 0.6, early: 110, eff: 1 },
-  hard:   { think: 0.6, mistake: 0.03, counter: true,  danger: 2, noise: 0.15, early: 260, eff: 2 },
-};
 const MINE = ['jack', 'robinson', 'gary', 'teammine'];
 const WAR = ['tim', 'kimmy', 'kelly', 'galion', 'sammy'];
 // rough cost-efficiency of each war unit (smarter AIs save up for efficient ones)
@@ -19,7 +14,7 @@ const EFF = { tim: 0, kimmy: 0.5, kelly: 0.6, galion: 1.4, sammy: 0 };
 
 export class AIPlayer {
   constructor(game, side, level = 'normal', seed = 99) {
-    this.g = game; this.side = side; this.level = level; this.cfg = LEVELS[level] || LEVELS.normal;
+    this.g = game; this.side = side; this.level = level; this.cfg = game.bal.ai.levels[level] || game.bal.ai.levels.normal;
     this.rng = makeRng(seed); this.cool = 1; this.prepDone = false; this.readyAt = 4 + this.rng() * 10;
     this.spent = { mine: 0, war: 0, craft: 0 };
     this.name = { easy: 'AI 철수', normal: 'AI 영희', hard: 'AI 장군' }[level] || 'AI';
@@ -56,7 +51,7 @@ export class AIPlayer {
     const g = this.g, p = g.players[this.side], c = g.bal.chars[id];
     if (p.cd[id] > 0) return false;
     if (c.team === 'war') return p.unitCount < g.bal.match.maxUnitsPerSide;
-    return p.owned[id] < c.max;
+    return p.owned[id] < maxOwned(c);
   }
 
   decide() {
@@ -119,6 +114,11 @@ export class AIPlayer {
       if (ft === 'flame') { w.tim -= 1; w.kimmy -= 1; w.kelly += 0.5; w.sammy += 0.5; }
       if (ft === 'iron') w.galion += 1;
     }
+    // towers can hit air now: Sammy alone is risky, so only favour it when ground allies can share the fire
+    const S = bal.ai.sammy;
+    let ground = 0;
+    for (const u of g.units) if (u.side === s && !u.dead && !u.air) ground++;
+    if (ground < S.minGroundAllies) w.sammy -= S.penalty;
     if (p.money > 800) { w.galion += 1; w.sammy += 1; }
     const horizon = p.money + p.income * 8;
     let pick = null, bs = -1e9;

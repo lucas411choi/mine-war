@@ -1,11 +1,11 @@
 /**
  * Combat module: damage pipeline, buffs/debuffs, kills.
- * Pipeline: base * suddenDeath * defender buff (Bill) * [attacker buff (Sam) if physical] * [tower DR].
+ * Pipeline: base * (1+suddenDeath.damageBonus) * defender buff (Bill) * [attacker buff (Sam) if physical] * [tower DR].
  */
 const r1 = (v) => Math.round(v * 10) / 10;
 
-export const atkMult = (g, side) => 1 + g.bal.chars.sam.atk * g.players[side].owned.sam;
-export const defMult = (g, side) => 1 - g.bal.chars.bill.def * g.players[side].owned.bill;
+export const atkMult = (g, side) => 1 + g.bal.chars.sam.perStack * Math.min(g.players[side].owned.sam, g.bal.chars.sam.maxStacks);
+export const defMult = (g, side) => 1 - g.bal.chars.bill.perStack * Math.min(g.players[side].owned.bill, g.bal.chars.bill.maxStacks);
 
 function credit(g, atkSide, src, d) {
   if (!src) return;

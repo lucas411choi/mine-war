@@ -102,9 +102,13 @@ export class Game {
         return this.finish(w, 'overtime');
       }
     }
-    const sd = this.overtime || this.timeLeft <= M.suddenDeathSeconds;
-    if (sd && !this.sudden) this.emit({ e: 'sd' });
-    this.sudden = sd; this.sdMult = sd ? M.suddenDeathMult : 1;
+    const SD = this.bal.suddenDeath;
+    const sd = this.overtime || this.timeLeft <= SD.seconds;
+    if (sd !== this.sudden) {
+      this.sudden = sd; this.sdMult = sd ? 1 + SD.damageBonus : 1;
+      for (const s of [0, 1]) this.players[s].income = calcIncome(this, s); // +income bonus applies to both players
+      if (sd) this.emit({ e: 'sd' });
+    }
 
     tickEconomy(this, dt);
     stepUnits(this, dt);
