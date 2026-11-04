@@ -37,9 +37,28 @@
           </div>
           <div class="menu-row">
             <button class="btn small" id="btn-settings" data-i18n="settings"></button>
+            <button class="btn small" id="btn-codex" data-i18n="codex"></button>
             <button class="btn small" id="btn-help" data-i18n="help"></button>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ============ CODEX (works offline: reads shared/balance.json only) ============ -->
+    <section id="screen-codex" class="screen hidden">
+      <header class="codex-head">
+        <button class="btn small" id="codex-back" data-i18n="back"></button>
+        <h2 data-i18n="codexTitle"></h2>
+      </header>
+      <nav id="codex-tabs" class="seg">
+        <button data-tab="mine" class="on" data-i18n="mine"></button><button data-tab="war" data-i18n="war"></button><button data-tab="craft" data-i18n="craft"></button><button data-tab="tower" data-i18n="towerTab"></button>
+      </nav>
+      <div class="codex-body">
+        <ul id="codex-list"></ul>
+        <section id="codex-detail">
+          <div class="codex-preview"><canvas id="codex-canvas"></canvas></div>
+          <div id="codex-info"></div>
+        </section>
       </div>
     </section>
 
@@ -59,7 +78,7 @@
       <header id="hud">
         <div class="hud-side me">
           <div class="hud-name"><span id="hud-me-name"></span></div>
-          <div class="bar"><i id="hp-me"></i><span id="hp-me-txt"></span></div>
+          <div class="bar"><i id="hp-me"></i></div>
         </div>
         <div class="hud-mid">
           <div class="hud-money"><span class="coin"></span><b id="hud-money">0</b><small id="hud-income">+0/s</small></div>
@@ -68,7 +87,7 @@
         </div>
         <div class="hud-side foe">
           <div class="hud-name"><span id="hud-foe-name"></span></div>
-          <div class="bar"><i id="hp-foe"></i><span id="hp-foe-txt"></span></div>
+          <div class="bar"><i id="hp-foe"></i></div>
         </div>
         <button class="btn small" id="btn-menu">☰</button>
       </header>
@@ -162,6 +181,14 @@
         <p id="conn-hint" data-i18n="connectingHint"></p>
         <p id="conn-time" class="hint"></p>
         <div class="row"><button class="btn" id="conn-cancel" data-i18n="cancel"></button></div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="modal-version">
+      <div class="card">
+        <h2 data-i18n="versionTitle"></h2>
+        <p data-i18n="VERSION"></p>
+        <div class="row"><button class="btn big" id="btn-refresh" data-i18n="refresh"></button></div>
       </div>
     </div>
 
