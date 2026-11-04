@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { Rig, buildTower } from './models.js';
 import { Particles } from './particles.js';
 import { MAT, build, meshFrom, instanced, box, cyl, cone, sph, ico, hemi, glow, rnd, COL } from './gfx.js';
+import { HpBars, BAR_STYLE } from './hpbars.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -34,17 +35,16 @@ export class WarScene {
     this.smoke = new Particles(this.scene, 300, false);
     this.units = new Map(); this.pool = new Map(); this.dying = [];
     this.towers = [null, null]; this.projectiles = []; this.projPool = []; this.rings = []; this.bolts = [];
-    // shared hp bar parts
-    this.barGeo = new THREE.PlaneGeometry(1, 0.14);
-    this.barBg = new THREE.MeshBasicMaterial({ color: 0x120a06, depthTest: false, transparent: true });
-    this.barMine = new THREE.MeshBasicMaterial({ color: 0x4aa3ff, depthTest: false });
-    this.barFoe = new THREE.MeshBasicMaterial({ color: 0xff5a4a, depthTest: false });
+    this.hpBars = new HpBars(); // all health bars (units + towers) in one draw call, drawn after post-processing
+    this._v = new THREE.Vector3();
     this.ringGeo = new THREE.TorusGeometry(0.62, 0.07, 6, 18);
     this.ringMat = new THREE.MeshBasicMaterial({ color: 0x66ccff });
     this.starGeo = new THREE.SphereGeometry(0.1, 6, 4);
     this.starMat = new THREE.MeshBasicMaterial({ color: 0xffe94a });
-    this.arrowGeo = new THREE.BoxGeometry(0.07, 0.07, 0.7);
-    this.arrowMat = new THREE.MeshBasicMaterial({ color: 0xf5e6c8 });
+    // flying arrow: shaft + head (+z, the travel direction after lookAt) + feathers at the back
+    this.arrowGeo = build([box('#c9a46a', 0, 0, 0, 0.05, 0.05, 0.8, undefined, { noOut: true }), cone('#d7dee6', 0, 0, 0.47, 0.09, 0.2, [Math.PI / 2, 0, 0], { noOut: true }),
+      box('#ffffff', 0, 0, -0.33, 0.2, 0.012, 0.2, undefined, { noOut: true }), box('#ffffff', 0, 0, -0.33, 0.012, 0.2, 0.2, undefined, { noOut: true })], 0.01).main;
+    this.arrowMat = new THREE.MeshBasicMaterial({ vertexColors: true });
     this.shellGeo = new THREE.SphereGeometry(0.28, 8, 6);
     this.shellMat = new THREE.MeshBasicMaterial({ color: 0x2a2a2e });
     this.beamGeo = new THREE.CylinderGeometry(0.1, 0.1, 1, 6);
@@ -130,6 +130,7 @@ export class WarScene {
     const sh = this.shake;
     cam.position.set(this.camX + (Math.random() - 0.5) * sh, Math.sin(el) * dist + (Math.random() - 0.5) * sh, Math.cos(el) * dist - 2);
     cam.lookAt(this.camX, 0, -2);
+    cam.updateMatrixWorld(); // fresh view matrix: hp bars / culling project with it
   }
   /** World point -> pixel inside the panel (null if behind camera). */
   project(x, y, z, w, h) {
@@ -146,17 +147,14 @@ export class WarScene {
     if (!uv) {
       const rig = new Rig(u.type, mine), root = new THREE.Group();
       root.add(rig.root);
-      const bar = new THREE.Group();
-      const bg = new THREE.Mesh(this.barGeo, this.barBg); bg.scale.set(1.5, 1.3, 1);
-      const fill = new THREE.Mesh(this.barGeo, mine ? this.barMine : this.barFoe);
-      bg.renderOrder = 20; fill.renderOrder = 21; bar.add(bg, fill);
-      bar.position.y = rig.def.style === 'plane' ? 1.6 : rig.def.style === 'tank' ? 3.4 : 2.9; root.add(bar);
       const ring = new THREE.Mesh(this.ringGeo, this.ringMat); ring.rotation.x = Math.PI / 2; ring.position.y = 0.1; ring.visible = false; root.add(ring);
       const stars = new THREE.Group();
       for (let i = 0; i < 3; i++) { const s = new THREE.Mesh(this.starGeo, this.starMat); stars.add(s); }
-      stars.position.y = bar.position.y + 0.5; stars.visible = false; root.add(stars);
-      uv = { key, rig, root, bar, fill, ring, stars, type: u.type, mine, fireT: 0 };
+      stars.position.y = rig.def.headY + 0.5; stars.visible = false; root.add(stars);
+      uv = { key, rig, root, ring, stars, type: u.type, mine, fireT: 0, pendingShot: null };
+      rig.onRelease = () => { const sh = uv.pendingShot; if (sh) { this.shoot('arrow', sh.a, sh.b, 0.26, 1.0); uv.pendingShot = null; } }; // arrow leaves the bow at release
     }
+    uv.shown = false; uv.a = 0; uv.disp = 1; uv.pendingShot = null; // health bar appears with the first damage
     uv.root.scale.set(1, 1, 1); uv.root.rotation.set(0, 0, 0); uv.root.visible = true; uv.rig.pivot.rotation.set(0, 0, 0); uv.rig.swing = -1; uv.rig.hurt = 0; uv.rig.pivot.position.set(0, 0, 0);
     this.scene.add(uv.root);
     return uv;
@@ -175,7 +173,7 @@ export class WarScene {
     info.root.position.set(sx, 0, 0);
     info.root.rotation.y = s === this.mySide ? Math.PI / 2 : -Math.PI / 2;
     this.scene.add(info.root);
-    tv = this.towers[s] = { info, type, pulse: 0, smokeT: 0, collapse: -1, side: s };
+    tv = this.towers[s] = { info, type, pulse: 0, smokeT: 0, collapse: -1, side: s, shown: false, a: 0, disp: 1 };
     return tv;
   }
 
@@ -204,10 +202,10 @@ export class WarScene {
         }
         case 'atk': {
           const uv = this.units.get(e.u);
-          if (uv) uv.rig.doSwing();
-          const ay = uv && uv.type === 'sammy' ? 3 : 1.4, a = new THREE.Vector3(this.X(e.x), ay, e.z), b = new THREE.Vector3(this.X(e.tx), e.tw ? 4 : e.a ? 3 : 1.1, e.tz);
-          if (e.k === 'arrow') this.shoot('arrow', a, b, 0.3, 1.2);
-          else if (e.k === 'cannon') { this.shoot('shell', a.setY(1.9), b, 0.45, 2.5); this.smoke.burst(a.x, 1.9, a.z, 4, { speed: 2, size: 0.5, size1: 1.6, color: '#8a8a90', life: 0.6, gravity: -0.5 }); st.shakeAmt(0.12); }
+          if (uv) { uv.rig.elev = e.a ? 1 : 0; uv.rig.doSwing(); }
+          const ay = uv && uv.type === 'sammy' ? 3 : 1.4, a = new THREE.Vector3(this.X(e.x), ay, e.z), b = new THREE.Vector3(this.X(e.tx), e.tw ? 4 : e.a ? 3.2 : 1.1, e.tz);
+          if (e.k === 'arrow') { if (uv) { a.x += (uv.mine ? 1 : -1) * 0.5; a.y = 1.5; uv.pendingShot = { a, b }; } else this.shoot('arrow', a, b, 0.3, 1.2); }
+          else if (e.k === 'cannon') { this.shoot('shell', a.setY(1.9), b, 0.3 + a.distanceTo(b) * 0.04, 2.5 + a.distanceTo(b) * 0.1); this.smoke.burst(a.x, 1.9, a.z, 4, { speed: 2, size: 0.5, size1: 1.6, color: '#8a8a90', life: 0.6, gravity: -0.5 }); st.shakeAmt(0.12); }
           else if (e.k === 'air') this.shoot('tracer', a, b, 0.12, 0);
           else this.fx.burst(b.x, 1.1, b.z, 4, { speed: 3, size: 0.18, color: '#ffffff', life: 0.25 });
           break;
@@ -248,7 +246,7 @@ export class WarScene {
       case 'iron': this.shoot('shell', a.setY(5.2), b, 0.5, 4); this.smoke.burst(a.x, 5.2, 0, 5, { speed: 2, size: 0.8, size1: 2, color: '#8a8a90', life: 0.8, gravity: -0.5 }); break;
       case 'flame': {
         for (let i = 0; i < 14; i++) { const k = i / 14; this.fx.emit({ x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k) + Math.sin(k * Math.PI) * 1.2, z: lerp(0, b.z, k), vx: (Math.random() - 0.5) * 2, vy: 1 + Math.random(), vz: (Math.random() - 0.5) * 2, life: 0.5, size: 0.5, size1: 0, color: ['#ff7a1a', '#ffd23a'][i % 2], gravity: -1 }); }
-        this.fx.burst(b.x, 0.8, b.z, 16, { speed: 5, size: 0.5, color: ['#ff5a1a', '#ffd23a'], life: 0.6, spread: 2.5 }); break;
+        this.fx.burst(b.x, Math.max(0.8, b.y - 0.4), b.z, 16, { speed: 5, size: 0.5, color: ['#ff5a1a', '#ffd23a'], life: 0.6, spread: 2.5 }); break;
       }
       default: this.shoot('beam', a, b, 0.15, 0, '#ffd23a');
     }
@@ -321,6 +319,7 @@ export class WarScene {
     this.frame++; this.t += dt;
     const my = this.mySide, a = view.alpha, t = this.t;
     this.shake = Math.max(0, this.shake - dt * 4);
+    this.hpBars.begin();
 
     // towers
     for (const s of [0, 1]) {
@@ -333,6 +332,12 @@ export class WarScene {
         if (Math.random() < 0.6) this.smoke.burst(root.position.x + (Math.random() - 0.5) * 4, 1 + Math.random() * (4 - 3 * k), (Math.random() - 0.5) * 4, 2, { speed: 3, size: 1, size1: 3, color: '#8b8579', life: 1.6, gravity: -1 });
         if (Math.random() < 0.4) this.fx.burst(root.position.x + (Math.random() - 0.5) * 4, 2 + Math.random() * 3, (Math.random() - 0.5) * 3, 3, { speed: 5, size: 0.5, color: ['#ffb347', '#ff5a2a'], life: 0.8 });
         continue;
+      }
+      // tower health bar: appears at the first damage, same green style, no numbers
+      if (view.phase !== 'prep' && ratio < 0.999) tv.shown = true;
+      if (tv.shown) {
+        tv.a = Math.min(1, tv.a + dt / BAR_STYLE.fadeIn); tv.disp += (ratio - tv.disp) * (1 - Math.exp(-dt * BAR_STYLE.ease));
+        this.hpBars.add(root.position.x, info.top + 1.3, 0, tv.disp, tv.a, BAR_STYLE.towerScale);
       }
       tv.pulse = Math.max(0, tv.pulse - dt);
       const sc = 1 + tv.pulse * 0.12; root.scale.set(sc, 1 - tv.pulse * 0.1, sc);
@@ -357,14 +362,17 @@ export class WarScene {
       uv.root.position.set(x, u.air ? 3 : 0, z);
       uv.root.rotation.y = mine ? Math.PI / 2 : -Math.PI / 2;
       uv.rig.mode = u.st === 1 ? 'move' : 'idle';
-      uv.rig.update(dt);
+      // off-screen units are neither animated nor given a health bar
+      const hy = (u.air ? 3 : 0) + uv.rig.def.headY;
+      this._v.set(x, hy, z).project(this.camera);
+      const on = Math.abs(this._v.x) < 1.2 && this._v.y < 1.25 && this._v.y > -1.5 && this._v.z < 1;
+      if (on) uv.rig.update(dt);
+      // health bar: shown from the first damage until death, same green style for allies and enemies
       const ratio = Math.max(0, u.hp / u.maxHp);
-      uv.bar.visible = ratio < 0.999;
-      if (uv.bar.visible) {
-        uv.fill.scale.set(ratio * 1.4, 1, 1); uv.fill.position.x = -(1 - ratio) * 0.7 - 0.0;
-        // billboard: cancel the unit's yaw, then face the camera
-        this._q.setFromAxisAngle(UP, -uv.root.rotation.y);
-        uv.bar.quaternion.copy(this._q).multiply(this.camera.quaternion);
+      if (ratio < 0.999) uv.shown = true;
+      if (uv.shown) {
+        uv.a = Math.min(1, uv.a + dt / BAR_STYLE.fadeIn); uv.disp += (ratio - uv.disp) * (1 - Math.exp(-dt * BAR_STYLE.ease));
+        if (on) this.hpBars.add(x, hy, z, uv.disp, uv.a, 1);
       }
       uv.ring.visible = u.slow > 0; uv.ring.rotation.z += dt * 2;
       uv.stars.visible = u.stun > 0;
@@ -377,8 +385,9 @@ export class WarScene {
     // vanished units -> death animation
     for (const [id, uv] of this.units) {
       if (uv.seen === this.frame) continue;
-      this.units.delete(id); this.dying.push({ uv, t: 0 }); uv.bar.visible = false; uv.ring.visible = false; uv.stars.visible = false;
+      this.units.delete(id); this.dying.push({ uv, t: 0 }); uv.ring.visible = false; uv.stars.visible = false;
     }
+    this.hpBars.end(w.w, w.h);
     for (let i = this.dying.length - 1; i >= 0; i--) {
       const d = this.dying[i]; d.t += dt; const k = d.t / 0.55;
       d.uv.rig.pivot.rotation.z = k * 1.2; d.uv.root.scale.set(1 + k * 0.3, Math.max(0.05, 1 - k), 1 + k * 0.3);

@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { box, sph, cyl, cone, hemi, oct, glow, build, cachedBuild, meshFrom, COL, teamCol, teamColD } from './gfx.js';
 import { ASSETS } from '../config/assets.js';
+import { BOW, bowPoints } from './archerGeom.js';
 
 // ------------------------------------------------------------------ GLB overrides
 const GLB = new Map();
@@ -44,7 +45,6 @@ const W = {
   dyn: [box('#d43a2f', -.07, -.62, 0, .1, .34, .1), box('#d43a2f', .07, -.62, 0, .1, .34, .1), box('#d43a2f', 0, -.62, .09, .1, .34, .1), glow(sph('#ffb347', 0, -.85, 0, .06))],
   shield: (c) => [cyl(c, -.15, -.35, .05, .38, .38, .08, [0, 0, Math.PI / 2]), cyl('#f2c230', -.2, -.35, .05, .12, .12, .1, [0, 0, Math.PI / 2])],
   tower: [cyl('#8d97a3', -.15, -.35, .05, .45, .45, .1, [0, 0, Math.PI / 2]), cyl('#3d7bff', -.2, -.35, .05, .2, .2, .1, [0, 0, Math.PI / 2])],
-  bow: [box('#7a4a22', 0, -.6, .32, .06, .06, .5, [.35, 0, 0]), box('#7a4a22', 0, -.6, -.32, .06, .06, .5, [-.35, 0, 0]), box('#7a4a22', 0, -.55, 0, .09, .18, .09), box('#f1f1f1', 0, -.72, 0, .015, .015, .9)],
 };
 
 function human(o) {
@@ -58,7 +58,7 @@ function human(o) {
   const legS = [box(leg, 0, -.22, 0, .22, .44, .24), box('#2b2018', 0, -.46, .05, .26, .12, .34)];
   return {
     scale: o.scale || 1, style: o.style || 'sword', rest: o.rest ?? -1.3, restL: o.restL, from: o.from ?? -2.9, to: o.to ?? -0.4, period: o.period || 0,
-    swingDur: o.swingDur || 0.35, walkSpeed: o.walkSpeed || 9,
+    swingDur: o.swingDur || 0.35, walkSpeed: o.walkSpeed || 9, headY: 2.55 * (o.scale || 1),
     parts: {
       body: { at: [0, 0, 0], specs: body },
       legL: { at: [.17, .5, 0], specs: legS }, legR: { at: [-.17, .5, 0], specs: legS },
@@ -68,11 +68,57 @@ function human(o) {
   };
 }
 
+// ------------------------------------------------------------------ archer (Kelly): bow held the right way round
+const seg = (c, [x0, y0], [x1, y1], th, o) => ({ g: new THREE.BoxGeometry(Math.hypot(x1 - x0, y1 - y0), th, th), c, p: [(x0 + x1) / 2, (y0 + y1) / 2, 0], r: [0, 0, Math.atan2(y1 - y0, x1 - x0)], ...o });
+function bowSpecs() {
+  const sp = [box('#5a3a1e', 0, BOW.gripY, 0, 0.26, 0.11, 0.11, undefined, { tag: 'grip' })];
+  const L = BOW.limb;
+  for (const sx of [1, -1]) for (let i = 0; i < L.length - 1; i++) {
+    sp.push(seg('#8a5a2b', [sx * L[i][0], L[i][1]], [sx * L[i + 1][0], L[i + 1][1]], i ? 0.08 : 0.1));
+  }
+  sp.push(sph('#e6d7a8', BOW.tipX, BOW.tipY, 0, 0.055, undefined, { tag: 'tipU', noOut: true }), sph('#e6d7a8', -BOW.tipX, BOW.tipY, 0, 0.055, undefined, { tag: 'tipL', noOut: true }));
+  return sp;
+}
+function arrowSpecs(team) {
+  const P = bowPoints(0);
+  return [
+    box('#c9a46a', 0, -BOW.arrowLen / 2, 0, 0.035, BOW.arrowLen, 0.035, undefined, { noOut: true, tag: 'shaft' }),
+    cone('#d7dee6', 0, P.arrowTip[1] - BOW.tipY, 0, 0.07, BOW.arrowTipLen, [Math.PI, 0, 0], { noOut: true, tag: 'arrowTip' }),
+    box(team, 0, -0.13, 0, 0.16, 0.2, 0.012, undefined, { noOut: true, tag: 'fletch' }), box(team, 0, -0.13, 0, 0.012, 0.2, 0.16, undefined, { noOut: true, tag: 'fletch' }),
+  ];
+}
+function archer(T) {
+  const sk = COL.skin, tor = '#4f9a3b', sleeve = [box(tor, 0, -.2, 0, .2, .46, .2)];
+  const body = [
+    box(tor, 0, .92, 0, .64, .56, .42), box('#3a2a1c', 0, .64, 0, .68, .1, .46), box(T, 0, .95, .22, .66, .12, .04),
+    box('#6b4a2a', -.15, 1.0, -.3, .18, .55, .14, [.2, 0, 0]), box(T, -.15, 1.3, -.3, .12, .1, .12),
+  ];
+  const head = [sph(sk, 0, 0, 0, .4), sph('#1b1b1b', .14, .03, .38, .06, undefined, { noOut: true }), sph('#1b1b1b', -.14, .03, .38, .06, undefined, { noOut: true }),
+    cone('#3f8a2f', 0, .43, -.05, .5, .8), box('#2f5a22', 0, -.02, -.32, .7, .6, .15)];
+  const leg = [box('#4b3b2e', 0, -.22, 0, .22, .44, .24), box('#2b2018', 0, -.46, .05, .26, .12, .34)];
+  const strSpec = [box('#f4f4ee', BOW.tipX / 2, 0, 0, BOW.tipX, 0.02, 0.02, undefined, { noOut: true, tag: 'string' })];
+  return {
+    scale: 1, style: 'bow', bow: BOW, swingDur: 0.45, walkSpeed: 9, headY: 2.6, period: 0,
+    parts: {
+      body: { at: [0, 0, 0], specs: body },
+      head: { at: [0, 1.52, 0], specs: head },
+      legL: { at: [.17, .5, 0], specs: leg }, legR: { at: [-.17, .5, 0], specs: leg },
+      // armR (+x side) holds the bow with the arm extended; armL (-x side) draws the string
+      armR: { at: [.43, 1.08, 0], specs: [...sleeve, sph(sk, 0, -BOW.armReach, 0, .12)] },
+      armL: { at: [-.43, 1.08, 0], specs: sleeve },
+      hand: { parent: 'armL', at: [0, -BOW.armReach, 0], specs: [sph(sk, 0, 0, 0, .12)] },
+      bow: { parent: 'armR', at: [0, 0, 0], specs: bowSpecs() },
+      strU: { parent: 'bow', at: [BOW.tipX, BOW.tipY, 0], specs: strSpec },
+      strL: { parent: 'bow', at: [-BOW.tipX, BOW.tipY, 0], specs: strSpec },
+      arrow: { parent: 'bow', at: [0, BOW.tipY, 0], specs: arrowSpecs(T) },
+    },
+  };
+}
+
 // ------------------------------------------------------------------ rig definitions (T = team color)
 const RIGS = {
   tim: (T) => human({ team: T, hat: 'helm', weaponR: W.sword, weaponL: W.shield(T), torso: T }),
-  kelly: (T) => human({ team: T, torso: '#4f9a3b', sleeve: '#4f9a3b', hat: 'hood', hatC: '#3f8a2f', style: 'bow', rest: -1.45, restL: -1.5, from: -1.5, to: -0.8, weaponL: W.bow,
-    bodyExtra: [box('#6b4a2a', -.15, 1.0, -.3, .18, .55, .14, [.2, 0, 0]), box(T, -.15, 1.3, -.3, .12, .1, .12)] }),
+  kelly: (T) => archer(T),
   jack: (T) => human({ team: T, torso: '#b9783a', sleeve: '#b9783a', hat: 'hard', weaponR: W.pick, period: 0.9, from: -3.0, to: -0.5, legs: '#3f5a85' }),
   gary: (T) => human({ team: T, torso: '#c04a3a', sleeve: '#c04a3a', hat: 'bandana', hatC: '#222', weaponR: W.dyn, period: 5, style: 'dyn', from: -3.0, to: -0.4, swingDur: 0.6, legs: '#333',
     bodyExtra: [box('#d43a2f', 0, .95, .24, .5, .1, .06), box('#ffd54a', 0, .95, .26, .5, .04, .04)] }),
@@ -100,7 +146,7 @@ const RIGS = {
     ];
     const legs = [box(hd, 0, -.3, .55, .18, .65, .18), box(hd, 0, -.3, -.55, .18, .65, .18), box('#222', 0, -.62, .55, .2, .1, .22), box('#222', 0, -.62, -.55, .2, .1, .22)];
     return {
-      scale: 1.05, style: 'horse', rest: -1.5, from: -1.5, to: -1.5, period: 0, swingDur: 0.3, walkSpeed: 14,
+      scale: 1.05, headY: 3.3, style: 'horse', rest: -1.5, from: -1.5, to: -1.5, period: 0, swingDur: 0.3, walkSpeed: 14,
       parts: {
         body: { at: [0, 0, 0], specs: body },
         legL: { at: [.22, .66, 0], specs: legs }, legR: { at: [-.22, .66, 0], specs: legs },
@@ -118,7 +164,7 @@ const RIGS = {
     ];
     const tread = [box('#2f2f33', 0, 0, 0, .45, .8, 2.5), sph('#555', 0, 0, .85, .32, [.5, 1, 1]), sph('#555', 0, 0, -.85, .32, [.5, 1, 1]), sph('#555', 0, 0, 0, .3, [.5, 1, 1])];
     return {
-      scale: 1.35, style: 'tank', rest: 0, from: 0, to: 0, swingDur: 0.5, walkSpeed: 6,
+      scale: 1.35, headY: 3.4, style: 'tank', rest: 0, from: 0, to: 0, swingDur: 0.5, walkSpeed: 6,
       parts: {
         body: { at: [0, 0, 0], specs: body },
         legL: { at: [.95, .42, 0], specs: tread }, legR: { at: [-.95, .42, 0], specs: tread },
@@ -135,7 +181,7 @@ const RIGS = {
       sph('#222', .55, -.5, .35, .17, [.5, 1, 1]), sph('#222', -.55, -.5, .35, .17, [.5, 1, 1]),
     ];
     return {
-      scale: 1.0, style: 'plane', rest: 0, from: 0, to: 0, swingDur: 0.4, walkSpeed: 6,
+      scale: 1.0, headY: 1.5, style: 'plane', rest: 0, from: 0, to: 0, swingDur: 0.4, walkSpeed: 6,
       parts: {
         body: { at: [0, 0, 0], specs: body },
         legL: { at: [0, 0, 0], specs: [] }, legR: { at: [0, 0, 0], specs: [] },
@@ -148,6 +194,9 @@ const RIGS = {
 RIGS.teammine = RIGS.jack;
 
 const defCache = new Map();
+const _v = new THREE.Vector3(), _dir = new THREE.Vector3(), _sh = new THREE.Vector3(-.43, 1.08, 0), _down = new THREE.Vector3(0, -1, 0);
+const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _eu = new THREE.Euler();
+const lerp = (a, b, t) => a + (b - a) * t;
 const ease = (s) => 1 - (1 - s) * (1 - s);
 
 export class Rig {
@@ -157,7 +206,7 @@ export class Rig {
     if (!def) { def = RIGS[id](T); defCache.set(key, def); }
     this.id = id; this.def = def; this.p = {};
     this.root = new THREE.Group(); this.pivot = new THREE.Group(); this.root.add(this.pivot);
-    this.t = Math.random() * 10; this.swing = -1; this.mode = 'idle'; this.hurt = 0; this.cast = 0;
+    this.t = Math.random() * 10; this.swing = -1; this.mode = 'idle'; this.hurt = 0; this.cast = 0; this.stance = 0; this.elev = 0; this.elevCur = 0; this.released = true; this.onRelease = null;
     this.timer = Math.random() * (def.period || 1); this.hitDone = true; this.onHit = null; this.baseScale = def.scale || 1;
     const glb = GLB.get(id);
     if (glb) { const m = glb.scene.clone(true); m.scale.setScalar(glb.scale); m.position.y = glb.y; this.pivot.add(m); }
@@ -166,14 +215,14 @@ export class Rig {
         const part = def.parts[name], g = new THREE.Group();
         g.position.set(...part.at);
         if (part.specs.length) g.add(meshFrom(cachedBuild(key + ':' + name, () => part.specs, def.thick || 0.05), { shadow: name === 'body' }));
-        this.pivot.add(g); this.p[name] = g;
+        (part.parent ? this.p[part.parent] : this.pivot).add(g); this.p[name] = g; // parent parts follow their parent's pose
       }
     }
     this.pivot.scale.setScalar(this.baseScale);
   }
 
   /** Trigger a one-shot attack/work swing. */
-  doSwing() { this.swing = 0; this.hitDone = true; }
+  doSwing() { this.swing = 0; this.hitDone = true; this.released = false; }
   doHurt() { this.hurt = 0.2; }
 
   update(dt) {
@@ -199,10 +248,41 @@ export class Rig {
         p.armL.rotation.x = 0; break;
       case 'tank':
         p.body.position.y *= 0.3; p.body.rotation.z = m === 'move' ? Math.sin(t * 12) * 0.01 : 0;
-        p.armR.position.z = 0.5 - sinS * 0.55; break;
+        p.armR.position.z = 0.5 - sinS * 0.55;
+        this.elevCur += (this.elev - this.elevCur) * Math.min(1, dt * 8);
+        p.armR.rotation.x = -0.6 * this.elevCur; // barrel rises when the target is airborne
+        break;
       case 'plane':
         p.armL.rotation.z += dt * 45; p.body.position.y = Math.sin(t * 3) * 0.12;
         p.body.rotation.z = Math.sin(t * 1.6) * 0.08; p.body.rotation.x = sinS * 0.2; p.armR.visible = s >= 0 && s < 0.45; break;
+      case 'bow': {
+        // side-on archery stance when not marching: body turned so the bow arm points at the enemy, head turned to look at it
+        const k = this.stance += ((m === 'move' ? 0 : 1) - this.stance) * Math.min(1, dt * 9), B = d.bow;
+        this.pivot.rotation.y = -Math.PI / 2 * k; p.head.rotation.y = Math.PI / 2 * k;
+        const bob = m === 'move' ? Math.abs(walk) * 0.08 : Math.sin(t * 2.2) * 0.02;
+        p.body.position.y = bob; p.head.position.y = 1.52 + bob;
+        p.legL.rotation.x = walk * 0.8 * (1 - k); p.legR.rotation.x = -walk * 0.8 * (1 - k);
+        p.armR.rotation.set(lerp(-1.0, 0, k), 0, lerp(0, Math.PI / 2, k));   // carry -> aim (arm along the shoulder line)
+        p.bow.rotation.y = lerp(Math.PI / 2, 0, k);                           // carried bow hangs vertical, aimed bow faces forward
+        const rel = B.release;
+        const pull = s < 0 ? 0 : s < rel ? ease(s / rel) : 0;
+        const vib = s >= rel ? Math.sin((s - rel) * 70) * 0.07 * (1 - (s - rel) / (1 - rel)) : 0;   // string twang after release
+        if (s >= rel && !this.released) { this.released = true; if (this.onRelease) this.onRelease(this); }
+        const dd = pull * B.draw + vib, L = Math.hypot(B.tipX, dd);
+        p.strU.rotation.z = Math.atan2(dd, -B.tipX); p.strU.scale.x = L / B.tipX;   // string = two segments tip -> nock
+        p.strL.rotation.z = Math.atan2(dd, B.tipX); p.strL.scale.x = L / B.tipX;
+        p.arrow.position.y = B.tipY + dd; p.arrow.visible = k > 0.5 && (s < 0 || s < rel);
+        // draw hand follows the nock; the arm stretches (not scales the hand) to reach it
+        p.armR.updateMatrix();
+        _v.set(0, B.tipY + dd, 0).applyMatrix4(p.armR.matrix);
+        _dir.copy(_v).sub(_sh); const reachLen = _dir.length();
+        const reach = s < 0 ? 0 : s < 0.15 ? s / 0.15 : s < rel ? 1 : Math.max(0, 1 - (s - rel) / (1 - rel));
+        _q1.setFromUnitVectors(_down, _dir.normalize());
+        _q2.setFromEuler(_eu.set(0.1 + Math.sin(t * 2 + 1) * 0.03, 0, 0));
+        p.armL.quaternion.copy(_q2).slerp(_q1, reach);
+        p.armL.scale.y = lerp(1, reachLen / B.armReach, reach); p.hand.scale.y = 1 / p.armL.scale.y;
+        break;
+      }
       default: {
         p.legL.rotation.x = walk * 0.8; p.legR.rotation.x = -walk * 0.8;
         let a = d.rest + (m === 'move' ? -walk * 0.3 : Math.sin(t * 2) * 0.04);

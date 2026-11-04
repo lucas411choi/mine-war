@@ -11,6 +11,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
+import { CopyShader } from 'three/examples/jsm/shaders/CopyShader.js';
 import { WarScene } from './warScene.js';
 import { MineScene, ForgeScene } from './workScenes.js';
 import { setOutlines } from './gfx.js';
@@ -35,6 +36,16 @@ class PanelsPass extends Pass {
   render(renderer, writeBuffer, readBuffer) {
     renderer.setRenderTarget(this.renderToScreen ? null : readBuffer);
     this.stage.drawPanels(renderer);
+  }
+}
+
+/** Last pass: blit the finished (tone-mapped) image to the screen, then draw the HP bars on top so their colors stay exact. */
+class BarsPass extends Pass {
+  constructor(stage) { super(); this.stage = stage; this.needsSwap = false; this.copy = new ShaderPass(CopyShader); }
+  render(renderer, writeBuffer, readBuffer) {
+    this.copy.renderToScreen = true;
+    this.copy.render(renderer, null, readBuffer);
+    this.stage.drawBars(renderer);
   }
 }
 
@@ -75,6 +86,7 @@ export class Stage {
       c.addPass(new OutputPass());
       c.addPass(new ShaderPass(GradeShader));
       if (q.fxaa) { this.fxaa = new ShaderPass(FXAAShader); c.addPass(this.fxaa); }
+      c.addPass(new BarsPass(this));
     }
     this.resize();
   }
@@ -143,9 +155,9 @@ export class Stage {
       const r = this.rects[p.key];
       p.visible = !!r && r.w > 4 && r.h > 4;
       if (!p.visible) continue;
+      p.sc.camera.aspect = r.w / r.h; p.sc.camera.updateProjectionMatrix();
       p.sc.fit(r.w / r.h);
       if (p.key === 'war') p.sc.update(sdt, view); else p.sc.update(sdt, view, my);
-      p.sc.camera.aspect = r.w / r.h; p.sc.camera.updateProjectionMatrix();
     }
     if (this.composer) this.composer.render(dt);
     else this.drawPanels(this.renderer, true);
@@ -164,9 +176,20 @@ export class Stage {
       const r = this.rects[p.key], y = size.y - (r.y + r.h);
       renderer.setViewport(r.x, y, r.w, r.h); renderer.setScissor(r.x, y, r.w, r.h);
       renderer.render(p.sc.scene, p.sc.camera);
+      if (direct && p.key === 'war') this.war.hpBars.draw(renderer, this.war.camera); // low quality: no composer, bars drawn right after the scene
     }
     renderer.setScissorTest(false);
     renderer.setViewport(0, 0, size.x, size.y); renderer.setScissor(0, 0, size.x, size.y);
+  }
+
+  /** Composer path: draw the war panel's HP bars onto the screen (scissored to the panel). */
+  drawBars(renderer) {
+    const p = this.panels[1], r = this.rects.war;
+    if (!p.visible || !r) return;
+    const size = renderer.getSize(this._v || (this._v = new THREE.Vector2())), y = size.y - (r.y + r.h);
+    renderer.setScissorTest(true); renderer.setViewport(r.x, y, r.w, r.h); renderer.setScissor(r.x, y, r.w, r.h);
+    this.war.hpBars.draw(renderer, this.war.camera);
+    renderer.setScissorTest(false); renderer.setViewport(0, 0, size.x, size.y); renderer.setScissor(0, 0, size.x, size.y);
   }
 
   /** Auto quality: if FPS stays low in auto mode, step down one level. */
